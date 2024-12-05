@@ -1,0 +1,134 @@
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>      // Include core graphics library
+#include <Adafruit_SSD1306.h> // Include the SSD1306 OLED library
+
+#define SCREEN_WIDTH 128  // OLED display width, in pixels
+#define SCREEN_HEIGHT 32  // OLED display height, in pixels
+#define OLED_RESET -1     // Reset pin (-1 if not used)
+
+// Create an instance of the display object
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+#define BUTTON_X 2
+#define BUTTON_O 3
+void setup() 
+{
+  Serial.begin(9600);
+Serial.print("/nXO CODE/n");
+delay(600);
+  // Initialize the display with the I2C address (e.g., 0x3C or 0x3D)
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    Serial.println("SSD1306 allocation failed");
+    for (;;); // Infinite loop if the display fails to initialize
+  }
+
+  display.clearDisplay(); // Clear the buffer
+  display.setTextSize(1); // Set text size
+  display.setTextColor(SSD1306_WHITE); // Set text color
+  display.setCursor(0, 0); // Set cursor position
+  display.println("Hello, OLED!"); // Print text
+  display.display(); // Display the buffer on the screen
+  delay(2000);
+}
+// Global variables
+int grid[3][3];         // 3x3 grid for the game
+int cursorX = 0;        // Cursor's X position
+int cursorY = 0;        // Cursor's Y position
+int currentPlayer = 1;  // 1 for X, 2 for O
+
+
+void loop() {
+  handleInput();
+  drawGrid();
+  int winner = checkWinner();
+  if (winner != 0) {
+    displayWinner(winner);
+    delay(5000);
+    resetGame();
+  }
+}
+
+void drawGrid() {
+  display.clearDisplay();
+
+  // Draw grid lines
+  for (int i = 1; i < 3; i++) {
+    display.drawLine(i * 42, 0, i * 42, SCREEN_HEIGHT, WHITE);
+    display.drawLine(0, i * 21, SCREEN_WIDTH, i * 21, WHITE);
+  }
+
+  // Draw X and O marks
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      int x = j * 42 + 14;
+      int y = i * 21 + 7;
+      if (grid[i][j] == 1) { // Draw X
+        display.drawLine(x - 5, y - 5, x + 5, y + 5, WHITE);
+        display.drawLine(x + 5, y - 5, x - 5, y + 5, WHITE);
+      } else if (grid[i][j] == 2) { // Draw O
+        display.drawCircle(x, y, 7, WHITE);
+      }
+    }
+  }
+
+  // Highlight cursor position
+  display.drawRect(cursorX * 42, cursorY * 21, 42, 21, WHITE);
+
+  display.display();
+}
+
+void handleInput() {
+  if (digitalRead(BUTTON_X) == LOW) {
+    if (grid[cursorY][cursorX] == 0) {
+      grid[cursorY][cursorX] = currentPlayer;
+      currentPlayer = (currentPlayer == 1) ? 2 : 1;
+    }
+    delay(200); // Debounce
+  }
+
+  if (digitalRead(BUTTON_O) == LOW) {
+    cursorX = (cursorX + 1) % 3;
+    cursorY = (cursorY + (cursorX == 0 ? 1 : 0)) % 3;
+    delay(200); // Debounce
+  }
+}
+
+int checkWinner() {
+  // Check rows and columns
+  for (int i = 0; i < 3; i++) {
+    if (grid[i][0] == grid[i][1] && grid[i][1] == grid[i][2] && grid[i][0] != 0)
+      return grid[i][0];
+    if (grid[0][i] == grid[1][i] && grid[1][i] == grid[2][i] && grid[0][i] != 0)
+      return grid[0][i];
+  }
+
+  // Check diagonals
+  if (grid[0][0] == grid[1][1] && grid[1][1] == grid[2][2] && grid[0][0] != 0)
+    return grid[0][0];
+  if (grid[0][2] == grid[1][1] && grid[1][1] == grid[2][0] && grid[0][2] != 0)
+    return grid[0][2];
+
+  return 0; // No winner
+}
+
+void displayWinner(int winner) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(10, 25);
+  display.print("Player ");
+  display.print(winner == 1 ? "X" : "O");
+  display.print(" Wins!");
+  display.display();
+}
+
+void resetGame() {
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      grid[i][j] = 0;
+    }
+  }
+  currentPlayer = 1;
+  cursorX = 0;
+  cursorY = 0;
+}
